@@ -1,0 +1,8 @@
+Variable,Category,Ensemble_CV_R2,Ensemble_CV_RMSE,Best_Baseline,Baseline_CV_R2,Fossil_R2_vs_CLAMP,Fossil_RMSE,Fossil_Bias
+MAT,Temperature,0.372,3.82,PLS,0.253,0.664,2.67,-1.24
+WMMT,Temperature,-0.156,3.74,Ridge,-0.569,-1.004,2.88,-1.82
+CMMT,Temperature,0.104,6.50,PLS,-0.012,0.769,3.15,-0.47
+GROWSEAS,Temperature,0.155,1.78,PLS,0.114,0.703,1.06,-0.16
+RH,Moisture-Energy,-3.931,11.00,PLS,-5.126,-0.084,18.98,+0.82
+SH,Moisture-Energy,0.194,2.17,PLS,-0.256,0.372,2.98,-0.44
+ENTHAL,Moisture-Energy,0.275,12.21,PLS,0.104,0.621,10.56,-5.10

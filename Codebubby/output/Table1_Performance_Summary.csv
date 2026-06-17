@@ -1,0 +1,8 @@
+Variable,Category,Spatial_CV_R2_RF,Spatial_CV_RMSE,Best_Baseline,Baseline_R2,TwoStage_Delta_R2,Fossil_R2_vs_CLAMP,Fossil_RMSE,Fossil_Bias
+MAT,Temperature,0.383,3.82,Linear,0.343,—,0.646,2.74,-1.69
+WMMT,Temperature,-0.321,3.71,ElasticNet,-0.284,—,-1.056,2.91,-2.09
+CMMT,Temperature,-0.013,6.02,PLS,-0.238,—,0.820,2.79,-0.98
+GROWSEAS,Temperature,0.099,1.78,Linear,0.138,—,0.730,1.01,-0.27
+RH,Moisture-Energy,-0.331,9.55,ElasticNet,-0.720,-0.030,-0.080,18.94,+1.61
+SH,Moisture-Energy,0.136,1.99,ElasticNet,0.060,-0.099,0.385,2.95,-0.35
+ENTHAL,Moisture-Energy,0.299,11.11,Linear,0.306,-0.092,0.681,9.68,-4.90
