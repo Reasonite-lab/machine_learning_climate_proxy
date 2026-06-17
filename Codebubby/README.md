@@ -1,29 +1,37 @@
-# Spatial Cross-Validation for Leaf-Physiognomy Paleoclimate Machine Learning
+# Limited Benefits of Ensemble Machine Learning for Leaf-Physiognomy Paleoclimate Reconstruction
 
-Code and data repository for: **"Spatial cross-validation reveals fundamental limits and fossil transfer potential of leaf-physiognomy machine learning for paleoclimate reconstruction"**
+[![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Submitted to *Climate of the Past* (CP).
+**Can machine learning outperform linear regression for reconstructing ancient climates from fossil leaves? Under honest spatial validation — not by much.**
 
-## Overview
+This repository contains the full analysis pipeline, figures, trained models, and manuscript for a study evaluating whether ensemble machine learning methods (Random Forest, XGBoost, Gradient Boosting, SVR) provide meaningful improvements over linear baselines for leaf-physiognomy paleoclimate reconstruction.
 
-This repository implements a leakage-free spatial cross-validation framework for evaluating machine learning models that predict climate variables from leaf physiognomic traits. Unlike previous studies that used random k-fold cross-validation—which ignores spatial autocorrelation and inflates performance estimates—we use block-based spatial GroupKFold, Leave-One-Continent-Out (LOCO) validation, and fossil transfer against CLAMP reference values.
+---
 
-**Key findings:**
-- Spatial CV dramatically reduces apparent model performance relative to random-fold estimates (MAT R² = 0.38 vs previously reported >0.8)
-- Ensemble ML provides only marginal improvements over linear statistical baselines
-- The two-stage architecture (temperature → moisture cascade) fails to improve spatial generalisation
-- Fossil transfer works for Asian-dominated target sites but reflects within-region interpolation
+## 🎯 Key Findings
 
-## Repository Structure
+| Question | Answer |
+|----------|--------|
+| Do ensemble ML methods beat linear models? | **No** — under space-block cross-validation, the best ensemble (Random Forest, R² = 0.38) outperforms the best linear model (OLS, R² = 0.34) by only **0.04** for MAT |
+| Why do previous studies report R² > 0.8? | Random k-fold CV leaks spatial information — geographically adjacent sites end up in both train and test sets, turning **spatial extrapolation into spatial interpolation** |
+| Does a two-stage cascade (predict temperature → feed into humidity prediction) help? | **No** — it consistently **degrades** prediction, because spatial biases from stage-1 propagate into stage-2 |
+| Can the model predict outside its training region? | LOCO (Leave-One-Continent-Out) reveals Europe R² = **−1.035** — worse than guessing the mean |
+| Is ML completely useless for this task? | **No** — if used with (i) spatial block validation, (ii) linear baselines, and (iii) awareness of fossil geographic composition, ML remains a viable tool for within-domain applications |
+
+---
+
+## 📂 Repository Structure
 
 ```
-Codebubby/
-├── training_pipeline_v2.py      # Main pipeline: spatial CV, baselines, LOCO, fossil transfer
-├── generate_figures_v2.py       # Publication figure generation (Fig 1-5)
-├── build_manuscript.py          # Manuscript DOCX builder
-├── Manuscript_Paleoclimate_ML_CP_v4.docx  # Complete manuscript
-├── README.md                    # This file
-├── models_v2/                   # Trained model files (.joblib)
+.
+├── training_pipeline_v2.py          # Core pipeline: spatial CV, LOCO, fossil transfer
+├── generate_figures_v2.py           # Generates Figures 1–5 for the manuscript
+├── fig1_heatmap.py                  # Trait–climate Spearman correlation heatmap
+├── build_manuscript_v7.py           # Builds the final manuscript (DOCX)
+├── build_manuscript_v7_cn.py        # Chinese translation of the manuscript
+├── build_pptx.py                    # Nature-style Chinese presentation (PPTX)
+├── models_v2/                       # 7 trained Stage-1 & Stage-2 models (joblib)
 │   ├── stage1_MAT.joblib
 │   ├── stage1_WMMT.joblib
 │   ├── stage1_CMMT.joblib
@@ -31,93 +39,138 @@ Codebubby/
 │   ├── stage2_RH.joblib
 │   ├── stage2_SH.joblib
 │   └── stage2_ENTHAL.joblib
-├── output/                      # Tabulated results
-│   ├── Table1_Performance_Summary.csv
-│   ├── Table2_LOCO_Validation.csv
-│   ├── Table3_Fossil_Predictions.csv
-│   ├── Table4_TwoStage_Ablation.csv
-│   └── Table5_Baseline_Comparison.csv
-└── Fig1-5_*.{svg,pdf,png,tiff}  # Publication figures
+├── output/                          # Result tables & presentation
+│   ├── performance_summary_v2.csv   # Spatial CV R², RMSE, fossil transfer R²
+│   ├── loco_validation_v2.csv      # Leave-One-Continent-Out results
+│   ├── fossil_predictions_v2.csv   # 71 fossil assemblage predictions
+│   ├── baseline_comparison_v2.csv  # Linear baseline comparison
+│   ├── two_stage_ablation_v2.csv   # Two-stage cascade ablation
+│   ├── final_presentation_cn.pptx  # Chinese presentation slides
+│   └── ...
+├── Fig1_trait_climate_corr.*       # Figure 1: Trait–Climate correlation heatmap
+├── Fig2_obs_vs_pred.*              # Figure 2: Observed vs Predicted (spatial CV)
+├── Fig3_feature_importance.*       # Figure 3: Feature importance ranking
+├── Fig4_model_comparison.*         # Figure 4: Model comparison (R² / RMSE)
+├── Fig5_two_stage_ablation.*       # Figure 5: Two-stage cascade ablation (ΔR²)
+└── Data                            # Calibration dataset
+    └── Global378+Tibet15+Fossil73_更正_副本.xlsx  # 393 modern + 71 fossil sites
 ```
 
-## Requirements
+---
 
-- Python 3.10+
-- numpy, pandas, scipy
-- scikit-learn >= 1.3
-- xgboost >= 2.0
-- matplotlib >= 3.7
-- joblib
-- openpyxl
-- python-docx
+## 🧪 Methods Overview
 
-Install:
+### Dataset
+
+- **393 modern woody dicot sites** across 5 continents (Asia: 158, Americas: 143, Europe: 25, Africa: 14, Oceania: 53)
+- **71 fossil assemblages** (92% from Asia)
+- **31 leaf physiognomic traits** (lobation, teeth types, leaf size classes, apex/base shapes, L:W ratios, shape categories)
+- **7 climate variables**: MAT, WMMT, CMMT, GROWSEAS, RH, SH, ENTHAL
+
+### Validation Strategies
+
+| Strategy | Description | Honest? |
+|----------|-------------|---------|
+| **Random k-fold CV** | Randomly split sites into k folds | ❌ Spatial leakage |
+| **Space-block CV** | Split by 5×4 lat/lon grid; entire blocks in train OR test | ✅ Honest |
+| **LOCO** | Leave-One-Continent-Out; entire continent as test set | ✅ Extreme test |
+
+### Models
+
+- **Ensembles**: Random Forest, XGBoost, Gradient Boosting, SVR
+- **Linear baselines**: OLS, Ridge, ElasticNet, PLS
+- **Two-stage cascade**: Stage-1 predicts 4 temperature variables → OOF predictions fed into Stage-2 for 3 moisture/energy variables
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
 ```bash
-pip install numpy pandas scipy scikit-learn xgboost matplotlib joblib openpyxl python-docx
+pip install pandas numpy scikit-learn xgboost matplotlib seaborn joblib openpyxl python-docx
 ```
 
-## Reproducing Results
+### Run the Full Pipeline
 
-### 1. Run the training pipeline
 ```bash
+# Step 1: Train models and generate result tables
 python training_pipeline_v2.py
-```
-This produces all tables (Tables 1-5) in `output/` and trained models in `models_v2/`.
 
-### 2. Generate figures
-```bash
+# Step 2: Generate figures
 python generate_figures_v2.py
-```
-This produces Figures 1-5 in SVG, PDF, PNG, and TIFF formats.
 
-### 3. Build the manuscript (optional)
-```bash
-python build_manuscript.py
+# Step 3: Build the manuscript (optional)
+python build_manuscript_v7.py
 ```
 
-## Data
+All outputs will be saved to `output/` and `models_v2/`.
 
-The calibration dataset (`Global378+Tibet15+Fossil73_更正.xlsx`) contains:
-- **393 modern woody dicot sites** across 5 continents with 31 leaf physiognomic trait proportions and 7 climate variables
-- **71 fossil assemblages** (predominantly Asian) with CLAMP-computed reference climate values
+### Load Trained Models
 
-Climate data extracted from WorldClim 2 (Fick & Hijmans, 2017).
+```python
+import joblib
 
-## Key Technical Details
+model = joblib.load('models_v2/stage1_MAT.joblib')
+predictions = model.predict(X_fossil)
+```
 
-### Spatial Cross-Validation
-- Block-based partitioning: 5 latitudinal × 4 longitudinal bands → spatial blocks
-- GroupKFold with spatial block as grouping variable
-- 10-fold CV (constrained by number of valid blocks)
+---
 
-### Two-Stage Architecture (Leakage-Free)
-- **Stage 1**: 31 traits → MAT, WMMT, CMMT, GROWSEAS (Random Forest)
-- **Stage 2**: 31 traits + out-of-fold Stage 1 predictions → RH, SH, ENTHAL
-- OOF predictions prevent target-site temperature leakage into Stage 2
+## 📊 Results Summary
 
-### Models Evaluated
-- **Ensemble ML**: Random Forest (n=500, depth=12), XGBoost (n=300, depth=5), Gradient Boosting (n=300, depth=4), SVR (RBF)
-- **Statistical Baselines**: Linear Regression, Ridge (CV alpha), ElasticNet (CV), PLS (n=4)
+### Spatial Cross-Validation (Space-Block GroupKFold)
 
-### Validation Protocols
-1. Block-based spatial GroupKFold
-2. Leave-One-Continent-Out (LOCO)
-3. Fossil transfer vs CLAMP reference (N=71)
+| Variable | Best Ensemble R² | Best Linear R² | ΔR² |
+|----------|-----------------|----------------|-----|
+| MAT | 0.383 (RF) | 0.341 (Ridge) | +0.042 |
+| WMMT | 0.216 (RF) | 0.177 (Ridge) | +0.039 |
+| CMMT | −0.013 (RF) | −0.002 (Ridge) | −0.011 |
+| GROWSEAS | 0.308 (RF) | 0.302 (Ridge) | +0.006 |
+| SH | 0.235 (GBDT) | 0.287 (Ridge) | −0.052 |
+| ENTHAL | 0.301 (RF) | 0.300 (Ridge) | +0.001 |
+| RH | −0.301 (RF) | −0.253 (OLS) | −0.048 |
 
-## Citation
+### LOCO Validation (Worst Case: Europe)
+
+| Variable | Europe R² |
+|----------|-----------|
+| MAT | −3.424 |
+| CMMT | −2.648 |
+| SH | −3.482 |
+| ENTHAL | −3.439 |
+
+### Two-Stage Cascade Ablation
+
+Adding OOF temperature predictions to moisture models consistently **degrades** R² by 0.03–0.10 across all three moisture variables.
+
+---
+
+## 📝 Manuscript
+
+The final manuscript (`build_manuscript_v7.py` → `Manuscript_ML_Limitations_v7.docx`) is formatted for submission to **Climate of the Past (CP)**.
+
+- **Title**: *Limited benefits of ensemble machine learning for leaf-physiognomy paleoclimate reconstruction*
+- **25 references** in Copernicus style
+- **5 embedded figures**
+- Chinese translation also available (`build_manuscript_v7_cn.py`)
+
+---
+
+## 🔗 Citation
 
 If you use this code or data, please cite:
 
-```
-[Author list]. Spatial cross-validation reveals fundamental limits and fossil transfer 
-potential of leaf-physiognomy machine learning for paleoclimate reconstruction. 
-Climate of the Past, [year].
-```
+> X. et al. (2025). Limited benefits of ensemble machine learning for leaf-physiognomy paleoclimate reconstruction. *In preparation for Climate of the Past.*
 
-## License
+And the key methodological references:
 
-[To be determined]
+- Roberts et al. (2017). Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure. *Ecography*.
+- Ploton et al. (2020). Spatial validation reveals poor predictive performance of large-scale ecological mapping models. *Nature Communications*.
+- Wolfe (1993). A method of obtaining climatic parameters from leaf assemblages. *USGS Bulletin*.
 
-## Contact
+---
 
-[corresponding author email]
+## ⚠️ Note on Token Security
+
+If you previously used a GitHub Personal Access Token in this repository, **revoke it immediately** at [github.com/settings/tokens](https://github.com/settings/tokens) and generate a new one.
